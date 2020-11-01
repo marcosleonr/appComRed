@@ -72,6 +72,13 @@ int main(){
     }
 }
 /*
+
+compilar
+g++ `pkg-config --cflags opencv` main.cpp `pkg-config --libs opencv` -lpthread
+ejecutar
+./a.out
+
+
 imshow("window",img);
 	waitKey(0);
 	//imshow("window",img);

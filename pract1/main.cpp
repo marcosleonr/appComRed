@@ -25,28 +25,41 @@ void * func(void * arg){
 	char num[5];
     sprintf(num,"%d",n);
 
+    /*path recurso origen*/
 	strcat(fname,num);
 	strcat(fname,ext);
-
 	strcat(pathmain,fname);
 
-	Mat img=imread(pathmain);
+	/*path recurso destino*/
+	strcat(pathb,fname);
+	strcat(pathg,fname);
+	strcat(pathr,fname);
 
+	/*lectura de la imagen en formato BGR*/
+	Mat img=imread(pathmain,IMREAD_COLOR);
+
+	if(img.empty()){
+		cout<<"could not read the image: "<<fname<<endl;
+		exit(1);
+	}
+
+	/*Se realian tres copias de la imagen*/
 	Mat img1 = img.clone();
 	Mat img2 = img.clone();
 	Mat img3 = img.clone();
 
+
 	for (int row = 0; row < img1.rows; row++){
   		for (int col = 0; col < img1.cols; col++){
+        	/*dependiento de la imagen se satura el canal Blue, Green o Red*/ 
         	img1.at<Vec3b>(row, col)[0] = 255;
 			img2.at<Vec3b>(row, col)[1] = 255;
 			img3.at<Vec3b>(row, col)[2] = 255;
    		}		
 	}
 
-	strcat(pathb,fname);
-	strcat(pathg,fname);
-	strcat(pathr,fname);
+	/*se almacena la nueva imagen en su respectiva carpeta, conservando el
+	formato de origen*/
 
 	imwrite(pathb,img1);
 	imwrite(pathg,img2);
@@ -70,41 +83,6 @@ int main(){
 	for(int i=0; i<nimg; i++){
     	pthread_join(threads[i], NULL);
     }
+
+    free(threads);
 }
-/*
-
-compilar
-g++ `pkg-config --cflags opencv` main.cpp `pkg-config --libs opencv` -lpthread
-ejecutar
-./a.out
-
-
-imshow("window",img);
-	waitKey(0);
-	//imshow("window",img);
-	//waitKey(0);
-	//imwrite("img1.jpg",img);
-header
-https://stackoverflow.com/questions/46426249/opencv-modify-image-pixels/46426440
-https://riptutorial.com/opencv/example/28276/pixel-by-pixel-modification-of-images
-https://stackoverflow.com/questions/12461848/accessing-pixel-value-using-cvmatat-operator
-https://www.youtube.com/watch?v=Kur8JL2GqWQ&list=PLZBN9cDu0MSlHMjJughb11ydICWbA8OBe&index=3
-
-	Mat img=imread("img.jpg");
-	Mat img1 = img.clone();
-	Mat img2 = img.clone();
-	Mat img3 = img.clone();
-
-	for (int row = 0; row < img1.rows; row++){
-  		for (int col = 0; col < img1.cols; col++){
-        	img1.at<Vec3b>(row, col)[0] = 255;
-			img2.at<Vec3b>(row, col)[1] = 255;
-			img3.at<Vec3b>(row, col)[2] = 255;
-   		}		
-	}
-
-
-	imwrite("img1.jpg",img1);
-	imwrite("img2.jpg",img2);
-	imwrite("img3.jpg",img3);
-*/

@@ -10,30 +10,33 @@
 #include<sys/ipc.h>
 #include<string.h>
 
-#define NSEMS 12
-#define NCRITICR 6
+#define SEM_PRODUCER_NAME1 "/producer1"
+#define SEM_CONSUMER_NAME1 "/consumer1"
+#define SEM_PRODUCER_NAME2 "/producer2"
+#define SEM_CONSUMER_NAME2 "/consumer2"
+#define SEM_PRODUCER_NAME3 "/producer3"
+#define SEM_CONSUMER_NAME3 "/consumer3"
+#define SEM_PRODUCER_NAME4 "/producer4"
+#define SEM_CONSUMER_NAME4 "/consumer4"
+#define SEM_PRODUCER_NAME5 "/producer5"
+#define SEM_CONSUMER_NAME5 "/consumer5"
+#define SEM_PRODUCER_NAME6 "/producer6"
+#define SEM_CONSUMER_NAME6 "/consumer6"
 
-#define SEM_PRODUCER_NAMEXT "/producer_ext"
-#define SEM_CONSUMER_NAMEXT "/consumer_ext"
-
-sem_t *sem_prodext;
-sem_t *sem_consext;
-
-
-
+sem_t *sem_prod1;
+sem_t *sem_cons1;
+sem_t *sem_prod2;
+sem_t *sem_cons2;
+sem_t *sem_prod3;
+sem_t *sem_cons3;
+sem_t *sem_prod4;
+sem_t *sem_cons4;
+sem_t *sem_prod5;
+sem_t *sem_cons5;
+sem_t *sem_prod6;
+sem_t *sem_cons6;
 FILE *fp;
-sem_t *sem_arr[NSEMS];
-int totalproduts;
-
-/*
-    sem_arr[0]  sem_arr[1]   productor y consumidor region critica1
-    sem_arr[2]  sem_arr[3]   productor y consumidor region critica1
-    sem_arr[4]  sem_arr[5]   productor y consumidor region critica2
-    sem_arr[6]  sem_arr[7]   productor y consumidor region critica3
-    sem_arr[8]  sem_arr[9]   productor y consumidor region critica4
-    sem_arr[10] sem_arr[11]  productor y consumidor region critica5
-*/
-
+int totalproduts=0;
 char criticReg[6][5];
 
 void write2file(char i){
@@ -64,29 +67,40 @@ void *producer(void *args){
 
     int nproducs=0;
 
-    while(nproducs<=10){
+    while(nproducs<=10000){
 
-        for(int j=0,k=0;j<NSEMS;j+=2,k++){   
-
-            int val1,val2;
-            sem_getvalue(&sem_arr[j],&val1);
-            sem_getvalue(&sem_arr[j+1],&val2);
-
-            printf("p%d c%d\n",val1,val2);
-
-
-            if(sem_trywait(sem_arr[j])!=EAGAIN){//sem productor
-                
-                strcpy(criticReg[k],value);
-                nproducs++;
-                //printf("P %s en region %d\n",criticReg[k],k);
-                sem_post(sem_arr[j+1]);//sem consumidor
-                
-                //Con este break se sale del ciclo formar el productor
-                break;
-            }
+        if(sem_trywait(sem_prod1)==0){
+            strcpy(criticReg[0],value);
+            nproducs++;
+            //printf("P %s en region 1\n",criticReg[0]);
+            sem_post(sem_cons1);     
+        }else if(sem_trywait(sem_prod2)==0){
+            strcpy(criticReg[1],value);
+            nproducs++;
+            //printf("P %s en region 2\n",criticReg[1]);
+            sem_post(sem_cons2);  
+        }else if(sem_trywait(sem_prod3)==0){
+            strcpy(criticReg[2],value);
+            nproducs++;
+            //printf("P %s en region 3\n",criticReg[2]);
+            sem_post(sem_cons3);  
+        }else if(sem_trywait(sem_prod4)==0){
+            strcpy(criticReg[3],value);
+            nproducs++;
+            //printf("P %s en region 4\n",criticReg[3]);
+            sem_post(sem_cons4);
+        }else if(sem_trywait(sem_prod5)==0){
+            strcpy(criticReg[4],value);
+            nproducs++;
+            //printf("P %s en region 5\n",criticReg[4]);
+            sem_post(sem_cons5);  
+        }else if(sem_trywait(sem_prod6)==0){
+            strcpy(criticReg[5],value);
+            nproducs++;
+            //printf("P %s en region 6\n",criticReg[5]);
+            sem_post(sem_cons6);
         }
-        break;
+
     }
 }
 
@@ -94,50 +108,59 @@ void *consumer(void *args){
     int id = *((int*)args);
     while(1){
 
-        if(totalproduts==10) pthread_exit(NULL);
-        for(int j=0,k=0;j<NSEMS;j+=2,k++){   
-            if(sem_trywait(sem_arr[j+1])!=EAGAIN){//sem consumidor
-                
-               // printf("C %d consumiendo %s en region %d\n",id,criticReg[k],k);
-                totalproduts++;
-                //Funcion para escribir en archivo dependiendo del
-                // valor que se leyó
-                write2file(criticReg[k][0]);
+        if(totalproduts==40000)
+            exit(0);
 
-                sem_post(sem_arr[j]); //sem productor
-                break;
-            }
+        if(sem_trywait(sem_cons1)==0){       
+            //printf("C %d consumiendo %s en region 1\n",id,criticReg[0]);
+            totalproduts++;
+            write2file(criticReg[0][0]);
+            sem_post(sem_prod1);
+        }else if(sem_trywait(sem_cons2)==0){
+            //printf("C %d consumiendo %s en region 2\n",id,criticReg[1]);
+            totalproduts++;
+            write2file(criticReg[1][0]);
+            sem_post(sem_prod2);
+        }else if(sem_trywait(sem_cons3)==0){
+            //printf("C %d consumiendo %s en region 3\n",id,criticReg[2]);
+            totalproduts++;
+            write2file(criticReg[2][0]);
+            sem_post(sem_prod3);
+        }else if(sem_trywait(sem_cons4)==0){
+            //printf("C %d consumiendo %s en region 4\n",id,criticReg[3]);
+            totalproduts++;
+            write2file(criticReg[3][0]);
+            sem_post(sem_prod4);
+        }else if(sem_trywait(sem_cons5)==0){
+            //printf("C %d consumiendo %s en region 5\n",id,criticReg[4]);
+            totalproduts++;
+            write2file(criticReg[4][0]);
+            sem_post(sem_prod5);
+        }else if(sem_trywait(sem_cons6)==0){
+            //printf("C %d consumiendo %s en region 6\n",id,criticReg[5]);
+            totalproduts++;
+            write2file(criticReg[5][0]);
+            sem_post(sem_prod6);
         }
-        break;
+        
+        
     }
 }
 
 int main(int argc,char *argv[]){
 
-    sem_prodext = sem_open(SEM_PRODUCER_NAMEXT, O_CREAT, S_IRUSR | S_IWUSR,2);
-    sem_consext = sem_open(SEM_CONSUMER_NAMEXT, O_CREAT, S_IRUSR | S_IWUSR,0);
-
-    char sem_name[10];
-    int ini_val;
-
-    //Creacion e inicializacion de semaforos para 6 regiones criticas
-    for (int i=0;i<NSEMS;i++){  
-        
-        //Generacion automatica de nombres
-        sprintf(sem_name,"/sem%d",i);
-
-        //si el valor es impar entonces es un semaforo
-        // productor y se inicializa con 1
-        ini_val = (i%2==0)? 1:0;
-
-        sem_arr[i] = sem_open((const char*)sem_name, O_CREAT, S_IRUSR | S_IWUSR,ini_val);
-
-        if(sem_arr[i]==SEM_FAILED){
-            printf("Error creacion sem%d",i);
-            exit(-1);
-        }
-    }
-
+    sem_prod1 = sem_open(SEM_PRODUCER_NAME1, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons1 = sem_open(SEM_CONSUMER_NAME1, O_CREAT, S_IRUSR | S_IWUSR,0);
+    sem_prod2 = sem_open(SEM_PRODUCER_NAME2, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons2 = sem_open(SEM_CONSUMER_NAME2, O_CREAT, S_IRUSR | S_IWUSR,0);
+    sem_prod3 = sem_open(SEM_PRODUCER_NAME3, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons3 = sem_open(SEM_CONSUMER_NAME3, O_CREAT, S_IRUSR | S_IWUSR,0);
+    sem_prod4 = sem_open(SEM_PRODUCER_NAME4, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons4 = sem_open(SEM_CONSUMER_NAME4, O_CREAT, S_IRUSR | S_IWUSR,0);
+    sem_prod5 = sem_open(SEM_PRODUCER_NAME5, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons5 = sem_open(SEM_CONSUMER_NAME5, O_CREAT, S_IRUSR | S_IWUSR,0);
+    sem_prod6 = sem_open(SEM_PRODUCER_NAME6, O_CREAT, S_IRUSR | S_IWUSR,1);
+    sem_cons6 = sem_open(SEM_CONSUMER_NAME6, O_CREAT, S_IRUSR | S_IWUSR,0);
     
     int nprod=4,ncons=3;
     pthread_t *prodth,*consth;
@@ -152,7 +175,7 @@ int main(int argc,char *argv[]){
     strcpy(args[3],"4444");    
 
     //Creacion hilos productor
-    for(int i=0;i<1;i++){
+    for(int i=0;i<nprod;i++){
         pthread_create(&prodth[i], NULL,(void*)producer,(void*)&args[i]);
     }
 
@@ -160,29 +183,46 @@ int main(int argc,char *argv[]){
     int icons[3];
 
     //Creacion hilos consumidor
-    for(int i=0;i<1;i++){
+    for(int i=0;i<ncons;i++){
         icons[i]=i;
         pthread_create(&consth[i],NULL,(void*)consumer,(void*)&icons[i]);
     }
 
 
     //Esperar finalizacion hilos productor
-    for(int i=0;i<1;i++){
+    for(int i=0;i<nprod;i++){
         pthread_join(prodth[i],NULL);   
     } 
 
     //Esperar finalizacion hilos consumidor
-    for(int i=0;i<1;i++){
+    for(int i=0;i<ncons;i++){
         pthread_join(consth[i],NULL);
     }
 
     //Libera recursos utilizados por el semaforo
-    //for(int i=0;i<NSEMS;i++){
-    //    sem_close(sem_arr[i]);
-    //}
-    
+    sem_close(sem_prod1);
+    sem_close(sem_cons1);
+    sem_close(sem_prod2);
+    sem_close(sem_cons2);
+    sem_close(sem_prod3);
+    sem_close(sem_cons3);
+    sem_close(sem_prod4);
+    sem_close(sem_cons4);
+    sem_close(sem_prod5);
+    sem_close(sem_cons5);
+    sem_close(sem_prod6);
+    sem_close(sem_cons6);
 
-   
+    
+    //Cerrar hilos productor
+    for(int i=0;i<nprod;i++){
+        free(&prodth[i]);   
+    } 
+
+    //Cerrar hilos consumidor
+    for(int i=0;i<ncons;i++){
+        free(&consth[i]);
+    }
 
     return 0;
 }

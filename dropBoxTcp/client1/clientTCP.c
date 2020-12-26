@@ -133,7 +133,33 @@ void * scanDir(void *args){
 }
 
 //Funcion que envia archivo al servidor
-int sendFile(int sockfd,char *fileName){
+int sendFile(char *fileName){
+    int sockfd,flag=1;
+    struct sockaddr_in server, client;
+      
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if (sockfd == -1){  
+        printf("socket creation failed...\n"); 
+        return 0;
+    }
+
+    if(setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&flag,sizeof(flag))==-1){
+        printf("setsockopt failed...\n"); 
+        return 0; 
+    }
+
+    bzero(&server, sizeof(server)); 
+  
+    server.sin_family = AF_INET; 
+    server.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+    server.sin_port = htons(SERVPORT);     
+    
+    if (connect(sockfd, (struct sockaddr*)&server, sizeof(server)) != 0) { 
+        printf("connection with the server failed 127.0.0.1:%d \n",SERVPORT); 
+        return 0; 
+    }else{
+        printf("connected to the server 127.0.0.1:%d \n",SERVPORT); 
+    }
 
     int idMsg = 0,filesize,n=0;
     char path[30]="./syncFolder/";
@@ -179,47 +205,22 @@ int sendFile(int sockfd,char *fileName){
     int nbytess=sendto(sockfd,&pkg,sizeof(Package),0,NULL,0);
 
     fclose(fp);
+    close(sockfd);
 
     return 1;
 }
 
 int main(int argc,char *argv[]){
 
-    int sockfd, connfd,flag=1,serverPort;
+    int serverPort;
     serverPort=atoi(argv[1]);    
 
     sem_writer = sem_open(SEM_WRITER_NAME, O_CREAT, S_IRUSR | S_IWUSR,1);
     sem_reader = sem_open(SEM_READER_NAME, O_CREAT, S_IRUSR | S_IWUSR,0);
 
     pthread_t serverTh,scanDirTh;
-    //pthread_create(&serverTh,NULL,(void*)server,(void*)&serverPort);
     pthread_create(&scanDirTh,NULL,(void*)scanDir,NULL);
-
-    struct sockaddr_in server, client;
-      
-    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
-    if (sockfd == -1) { 
-        printf("socket creation failed...\n"); 
-        exit(0); 
-    }
-
-    if(setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&flag,sizeof(flag))==-1){
-        printf("setsockopt failed...\n"); 
-        exit(0); 
-    }
-
-    bzero(&server, sizeof(server)); 
-  
-    server.sin_family = AF_INET; 
-    server.sin_addr.s_addr = inet_addr("127.0.0.1"); 
-    server.sin_port = htons(SERVPORT);     
-    
-    if (connect(sockfd, (struct sockaddr*)&server, sizeof(server)) != 0) { 
-        printf("connection with the server failed 127.0.0.1:%d \n",SERVPORT); 
-        exit(0); 
-    }else{
-        printf("connected to the server 127.0.0.1:%d \n",SERVPORT); 
-    }
+    pthread_create(&serverTh,NULL,(void*)server,(void*)&serverPort);
     
     char *finalName;
     finalName = (char*)malloc(sizeof(char)*20);
@@ -231,14 +232,12 @@ int main(int argc,char *argv[]){
         sem_post(sem_writer);
 
         //Envio de archivo
-        if(sendFile(sockfd,finalName)){
+        if(sendFile(finalName)){
             printf("%s uploaded\n",finalName);
         }else{
             printf("error sending file\n");
         } 
     }
-
-    close(sockfd);
 
     return 0;
 } 

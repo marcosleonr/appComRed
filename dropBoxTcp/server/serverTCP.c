@@ -22,7 +22,7 @@ typedef struct{
 void *handler(void *args){
 
     int *idCh = (int*)args, banFile=1;
-    char path[30]="./dest/";
+    char path[30]="./syncFolder/";
     FILE *fp;
     Package pkg;
     
@@ -43,11 +43,11 @@ void *handler(void *args){
         }
 
         if(pkg.id==-1){
-            printf("%s completed\n",pkg.filename);
+            printf("%s uploaded\n",pkg.filename);
             break;
         }
 
-        printf("%d\n",pkg.msglen);
+        //printf("%d\n",pkg.msglen);
 
         fwrite(pkg.msg,sizeof(char),pkg.msglen,fp);
 

@@ -241,7 +241,7 @@ int main(int argc,char *argv[]){
         printf("error localserver info");
         exit(0);
     }else{
-        printf("localserver info\n");
+        printf("localserver info");
     }
 
     char *finalName;

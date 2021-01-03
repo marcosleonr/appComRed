@@ -25,6 +25,7 @@
 
 char *arrFileName[ARRSIZE];
 int numberOfFiles;
+int sockfd;
 int localServerPort;//Puerto del servidor 
 char globalName[20];
 
@@ -34,7 +35,7 @@ sem_t * sem_reader;
 typedef struct{
     int id;
     int msgLen;
-    char fileName[15];
+    char fileName[20];
     char msg[MAX];    
 }Package; 
 
@@ -46,11 +47,9 @@ typedef struct{
 
 void * server(void *args){
 
-    int serverPort,sockfd,idChannel,len,flag=1;
+    int sockfd,idChannel,len,flag=1;
     struct sockaddr_in server,client;
-    
-    serverPort = *((int*)args);   
-    
+        
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
 
     if(sockfd == -1){ 
@@ -67,7 +66,7 @@ void * server(void *args){
 
     server.sin_family = AF_INET; 
     server.sin_addr.s_addr = htonl(INADDR_ANY); 
-    server.sin_port = htons(serverPort); 
+    server.sin_port = htons(localServerPort); 
 
     if ((bind(sockfd, (struct sockaddr*)&server, sizeof(server))) != 0) { 
         printf("server socket bind failed...\n"); 
@@ -91,8 +90,6 @@ void * server(void *args){
         }else{
             printf("server acccept the client...\n"); 
         }
-
-
 
     }
 
@@ -141,7 +138,7 @@ void * scanDir(void *args){
 }
 
 //Funcion que envia archivo al servidor
-int sendFile(int sockfd,char *fileName){
+int sendFile(char *fileName){
     
     int idMsg = 0,filesize,n=0;
     char path[30]="./syncFolder/";
@@ -175,7 +172,8 @@ int sendFile(int sockfd,char *fileName){
         bzero(pkg.msg,MAX); 
 
         int nbytesr=recvfrom(sockfd,&pkg,sizeof(Package),0,NULL,NULL);
-                
+
+        printf("idclient %d  idserv %d\n",idMsg,pkg.id);
         if(pkg.id!=idMsg){
             printf("error sending file\n");
             return 0;
@@ -191,6 +189,19 @@ int sendFile(int sockfd,char *fileName){
     return 1;
 }
 
+void * scanTerminal(void * args){
+    char str[20];
+    scanf("%s",str);
+    if(strncmp(str,"exit",4)==0){
+        Package final;
+        final.id=-2;
+        int nbytess=sendto(sockfd,&final,sizeof(Package),0,NULL,0);
+        close(sockfd);
+        printf("closed conection");
+        exit(0);
+    }
+}
+
 int main(int argc,char *argv[]){
 
     localServerPort=atoi(argv[1]);    
@@ -198,11 +209,12 @@ int main(int argc,char *argv[]){
     sem_writer = sem_open(SEM_WRITER_NAME, O_CREAT, S_IRUSR | S_IWUSR,1);
     sem_reader = sem_open(SEM_READER_NAME, O_CREAT, S_IRUSR | S_IWUSR,0);
 
-    pthread_t serverTh,scanDirTh;
+    pthread_t serverTh,scanDirTh,scanTerminalTh;
     pthread_create(&scanDirTh,NULL,(void*)scanDir,NULL);
-    //pthread_create(&serverTh,NULL,(void*)server,)NULL;
+    pthread_create(&serverTh,NULL,(void*)server,NULL);
+    pthread_create(&scanTerminalTh,NULL,(void*)scanTerminal,NULL);
     
-    int sockfd,flag=1;
+    int flag=1;
     struct sockaddr_in server, client;
       
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
@@ -254,14 +266,12 @@ int main(int argc,char *argv[]){
         sem_post(sem_writer);
 
         //Envio de archivo
-        if(sendFile(sockfd,finalName)){
+        if(sendFile(finalName)){
             printf("%s uploaded\n",finalName);
         }else{
             printf("error sending file\n");
         } 
     }
-
-    close(sockfd);
 
     return 0;
 } 

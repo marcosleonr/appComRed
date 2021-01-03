@@ -46,6 +46,13 @@ void *handler(void *args){
 
     int *idCh = (int*)args;
     serverData sD;
+
+    struct sockaddr_in local_address;
+    int addr_size = sizeof(local_address);
+    getpeername(*idCh, (struct sockaddr *)&local_address, &addr_size);
+    int localport;
+    localport=htons(local_address.sin_port);
+    printf("puerto cliente %d\n",localport);
     
     //Recibir datos del servidor localizado en el cliente
     int nbytesr=recvfrom(*idCh,&sD,sizeof(serverData),0,NULL,NULL);
@@ -79,7 +86,7 @@ void *handler(void *args){
             if(pkg.id==-1){
                 printf("%s uploaded\n",pkg.filename);
                 
-                int nServers = idServerList; 
+                /*int nServers = idServerList; 
                 for(int i=0;i<(nServers);i++){
                     printf("%d\n",serverList[i].serverPort);
                     printf("%s\n",serverList[i].ip);
@@ -88,7 +95,7 @@ void *handler(void *args){
                     //pthread_t *clientTh = (pthread_t*)malloc(sizeof(pthread_t));
                     //pthread_create(clientTh, NULL,(void*)client,);
                     //free(clientTh);   
-                }               
+                }     */          
                 break;
             }else if(pkg.id==-2){
                 close(*idCh);

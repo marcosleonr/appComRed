@@ -28,6 +28,7 @@ int numberOfFiles;
 int sockfd;
 int localServerPort;//Puerto del servidor 
 char globalName[20];
+int scanTerminalFlag=1;
 
 sem_t * sem_writer;
 sem_t * sem_reader;
@@ -126,9 +127,11 @@ void * scanDir(void *args){
                 newFileName=(char*)malloc(sizeof(char)*20);
                 strcpy(newFileName,ptrDirent->d_name);
                 if(findFile(newFileName)==0){
-                    sem_wait(sem_writer);
-                        strcpy(globalName,newFileName);
-                    sem_post(sem_reader);
+                    //sem_wait(sem_writer);
+                    strcpy(globalName,newFileName);
+                    scanTerminalFlag=0;
+                    while(scanTerminalFlag==0);
+                    //sem_post(sem_reader);
                 }
             }
         }
@@ -173,7 +176,7 @@ int sendFile(char *fileName){
 
         int nbytesr=recvfrom(sockfd,&pkg,sizeof(Package),0,NULL,NULL);
 
-        printf("idclient %d  idserv %d\n",idMsg,pkg.id);
+        //printf("idclient %d  idserv %d\n",idMsg,pkg.id);
         if(pkg.id!=idMsg){
             printf("error sending file\n");
             return 0;
@@ -191,15 +194,24 @@ int sendFile(char *fileName){
 
 void * scanTerminal(void * args){
     char str[20];
-    scanf("%s",str);
-    if(strncmp(str,"exit",4)==0){
-        Package final;
-        final.id=-2;
-        int nbytess=sendto(sockfd,&final,sizeof(Package),0,NULL,0);
-        close(sockfd);
-        printf("closed conection");
-        exit(0);
-    }
+    //while(TRUE){
+        bzero(str,20);
+        scanf("%s",str);
+        if(strncmp(str,"exit",4)==0){
+            Package final;
+            final.id=-2;
+            int nbytess=sendto(sockfd,&final,sizeof(Package),0,NULL,0);
+            close(sockfd);
+            printf("closed conection");
+            exit(0);
+        }/*else{
+            //sem_wait(sem_writer);
+                strcpy(globalName,str);
+            //sem_post(sem_reader);
+            scanTermialFlag=0;
+        }*/
+    //}
+
 }
 
 int main(int argc,char *argv[]){
@@ -241,6 +253,13 @@ int main(int argc,char *argv[]){
         printf("connected to the server 127.0.0.1:%d \n",SERVPORT); 
     }
 
+    struct sockaddr_in local_address;
+    int addr_size = sizeof(local_address);
+    getsockname(sockfd, (struct sockaddr *)&local_address, &addr_size);
+    int localport;
+    localport=htons(local_address.sin_port);
+    printf("local port %d\n",localport);
+
     //Envio de primer paquete con datos del servidor que esta alojado en el cliente    
     serverData sD;
     sD.serverPort = localServerPort;
@@ -261,9 +280,10 @@ int main(int argc,char *argv[]){
 
     while(TRUE){
         
-        sem_wait(sem_reader);
-            strcpy(finalName,globalName);
-        sem_post(sem_writer);
+        //sem_wait(sem_reader);
+        while(scanTerminalFlag);
+        strcpy(finalName,globalName);
+        //sem_post(sem_writer);
 
         //Envio de archivo
         if(sendFile(finalName)){
@@ -271,6 +291,7 @@ int main(int argc,char *argv[]){
         }else{
             printf("error sending file\n");
         } 
+        scanTerminalFlag=1;
     }
 
     return 0;

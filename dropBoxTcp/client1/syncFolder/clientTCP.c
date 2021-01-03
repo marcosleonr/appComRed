@@ -92,6 +92,41 @@ void * server(void *args){
             printf("server acccept the client...\n"); 
         }
 
+        char path[30]="./recvFolder/";
+        FILE *fp;
+        Package pkg;
+        int banFile=1;
+    
+        while(TRUE){
+
+            bzero(pkg.msg, MAX); 
+
+            int nbytesr=recvfrom(idChannel,&pkg,sizeof(Package),0,NULL,NULL);
+
+            if(pkg.id==-1){
+                printf("%s uploaded\n",pkg.fileName);
+                break;
+            }
+
+            if(banFile){
+                strcat(path,pkg.fileName);
+                fp = fopen(path, "a+");
+                if(fp==NULL){
+                    printf("error opening the file");
+                    exit(0);
+                }
+                banFile=0; 
+            }    
+
+            fwrite(pkg.msg,sizeof(char),pkg.msgLen,fp);
+
+            bzero(pkg.msg, MAX);
+            pkg.id++;
+
+            int nbytess=sendto(idChannel,&pkg,sizeof(Package),0,NULL,0);
+        }
+        fclose(fp);
+        close(idChannel);
     }
 
     close(sockfd);

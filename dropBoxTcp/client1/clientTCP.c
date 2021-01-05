@@ -20,14 +20,16 @@
 #define MAX 1500
 #define SERVPORT 7200
 #define TRUE 1
-#define ARRSIZE 10
+#define ARRSIZE 30
 #define IPLEN 16
 
 char *arrFileName[ARRSIZE];
+char *recFileName[ARRSIZE];
 int numberOfFiles;
+int numberOfRecFiles;
 int sockfd;
 int localServerPort;//Puerto del servidor 
-char globalName[20];
+char globalName[40];
 int scanTerminalFlag=1;
 
 sem_t * sem_writer;
@@ -36,7 +38,7 @@ sem_t * sem_reader;
 typedef struct{
     int id;
     int msgLen;
-    char fileName[20];
+    char fileName[40];
     char msg[MAX];    
 }Package; 
 
@@ -92,7 +94,7 @@ void * server(void *args){
             printf("server acccept the client...\n"); 
         }
 
-        char path[30]="./recvFolder/";
+        char path[30]="./syncFolder/";
         FILE *fp;
         Package pkg;
         int banFile=1;
@@ -104,12 +106,19 @@ void * server(void *args){
             int nbytesr=recvfrom(idChannel,&pkg,sizeof(Package),0,NULL,NULL);
 
             if(pkg.id==-1){
-                printf("%s uploaded\n",pkg.fileName);
+                printf("%s received\n",pkg.fileName);
                 break;
             }
 
             if(banFile){
                 strcat(path,pkg.fileName);
+
+                char *str;
+                str = (char*)malloc(sizeof(char)*40);
+                strcpy(str,pkg.fileName);
+                recFileName[numberOfRecFiles]=str;
+                numberOfRecFiles++;
+
                 fp = fopen(path, "a+");
                 if(fp==NULL){
                     printf("error opening the file");
@@ -143,6 +152,13 @@ int findFile(char *fileName){
             return 1;
         }
     }
+
+    for(int i=0;i<numberOfRecFiles;i++){
+        if(strcmp(recFileName[i],fileName)==0){
+            return 1;
+        }
+    }
+
     arrFileName[numberOfFiles]=fileName;
     numberOfFiles++;
     return 0;
@@ -159,14 +175,13 @@ void * scanDir(void *args){
         while ((ptrDirent = readdir(ptrDir)) != NULL) {
             if(ptrDirent->d_type == DT_REG){
                 char* newFileName;
-                newFileName=(char*)malloc(sizeof(char)*20);
+                newFileName=(char*)malloc(sizeof(char)*40);
                 strcpy(newFileName,ptrDirent->d_name);
                 if(findFile(newFileName)==0){
-                    //sem_wait(sem_writer);
                     strcpy(globalName,newFileName);
                     scanTerminalFlag=0;
+                    //printf("se esta enviando el archivo %s\n",globalName);
                     while(scanTerminalFlag==0);
-                    //sem_post(sem_reader);
                 }
             }
         }
@@ -228,9 +243,9 @@ int sendFile(char *fileName){
 }
 
 void * scanTerminal(void * args){
-    char str[20];
+    char str[40];
     //while(TRUE){
-        bzero(str,20);
+        bzero(str,40);
         scanf("%s",str);
         if(strncmp(str,"exit",4)==0){
             Package final;
@@ -239,13 +254,7 @@ void * scanTerminal(void * args){
             close(sockfd);
             printf("closed conection");
             exit(0);
-        }/*else{
-            //sem_wait(sem_writer);
-                strcpy(globalName,str);
-            //sem_post(sem_reader);
-            scanTermialFlag=0;
-        }*/
-    //}
+        }
 
 }
 
@@ -293,7 +302,7 @@ int main(int argc,char *argv[]){
     getsockname(sockfd, (struct sockaddr *)&local_address, &addr_size);
     int localport;
     localport=htons(local_address.sin_port);
-    printf("local port %d\n",localport);
+    //printf("local port %d\n",localport);
 
     //Envio de primer paquete con datos del servidor que esta alojado en el cliente    
     serverData sD;
@@ -307,11 +316,11 @@ int main(int argc,char *argv[]){
         printf("error localserver info");
         exit(0);
     }else{
-        printf("localserver info\n");
+        //printf("localserver info\n");
     }
 
     char *finalName;
-    finalName = (char*)malloc(sizeof(char)*20);
+    finalName = (char*)malloc(sizeof(char)*40);
 
     while(TRUE){
         
@@ -322,7 +331,7 @@ int main(int argc,char *argv[]){
 
         //Envio de archivo
         if(sendFile(finalName)){
-            printf("%s uploaded\n",finalName);
+            printf("%s send\n",finalName);
         }else{
             printf("error sending file\n");
         } 

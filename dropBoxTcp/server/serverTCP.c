@@ -24,7 +24,7 @@
 typedef struct{
     int id;
     int msglen;
-    char filename[20];
+    char filename[40];
     char msg[MAX];
 }Package; 
 
@@ -35,10 +35,10 @@ typedef struct{
 
 typedef struct{
     int port;
-    char fileName[20];
+    char fileName[40];
 }packageClient;
 
-serverData serverList[20];
+serverData serverList[40];
 int idServerList;
 
 sem_t *sem1;
@@ -127,7 +127,7 @@ void * client(void *args){
     }
 
     if(sendFile(sockfd,pC.fileName)){
-        printf("%s uploaded\n",pC.fileName);
+        printf("%s send\n",pC.fileName);
     }else{
         printf("error sending file\n");
     } 
@@ -177,7 +177,7 @@ void *handler(void *args){
             int nbytesr=recvfrom(*idCh,&pkg,sizeof(Package),0,NULL,NULL);
 
             if(pkg.id==-1){
-                printf("%s uploaded\n",pkg.filename);
+                printf("%s received\n",pkg.filename);
                 
                 int nServers = idServerList; 
                 for(int i=0;i<(nServers);i++){
@@ -187,7 +187,7 @@ void *handler(void *args){
                         packageClient *pC;
                         pC = (packageClient*)malloc(sizeof(packageClient));
                         pC->port=serverList[i].serverPort;
-                        strncpy(pC->fileName,pkg.filename,20);
+                        strncpy(pC->fileName,pkg.filename,40);
 
                         pthread_t *clientTh = (pthread_t*)malloc(sizeof(pthread_t));
                         pthread_create(clientTh, NULL,(void*)client,(void*)pC);
@@ -232,7 +232,7 @@ void *handler(void *args){
 
 void * scanTerminal(void * args){
     int sockfd = *((int*)args);
-    char str[20];
+    char str[40];
     scanf("%s",str);
     if(strncmp(str,"exit",4)==0){
         

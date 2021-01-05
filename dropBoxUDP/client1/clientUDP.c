@@ -1,0 +1,188 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<netinet/ip.h>
+#include<string.h>
+#include<arpa/inet.h>
+#include<pthread.h>
+#include<dirent.h>
+#include<sys/stat.h>
+#include<semaphore.h>
+#include<fcntl.h> 
+
+#define MAX 1500
+#define SERVPORT 7200
+#define TRUE 1
+#define ARRSIZE 30
+#define IPLEN 16
+
+char *arrFileName[ARRSIZE];
+char *recFileName[ARRSIZE];
+int numberOfFiles;
+int numberOfRecFiles;
+int sockfd;
+int localServerPort;//Puerto del servidor 
+char globalName[40];
+int scanTerminalFlag=1;
+
+typedef struct{
+    int id;
+    int msgLen;
+    char fileName[40];
+    char msg[MAX];    
+}Package;
+
+int findFile(char *fileName){
+
+    for(int i=0;i<numberOfFiles;i++){
+        if(strcmp(arrFileName[i],fileName)==0){
+            return 1;
+        }
+    }
+
+    for(int i=0;i<numberOfRecFiles;i++){
+        if(strcmp(recFileName[i],fileName)==0){
+            return 1;
+        }
+    }
+
+    arrFileName[numberOfFiles]=fileName;
+    numberOfFiles++;
+    return 0;
+}
+
+void * scanDir(void *args){
+    DIR *ptrDir;
+    struct dirent *ptrDirent;
+
+    while(TRUE){
+        
+        ptrDir = opendir("./syncFolder");
+        while ((ptrDirent = readdir(ptrDir)) != NULL) {
+            if(ptrDirent->d_type == DT_REG){
+                char* newFileName;
+                newFileName=(char*)malloc(sizeof(char)*40);
+                strcpy(newFileName,ptrDirent->d_name);
+                if(findFile(newFileName)==0){
+                    strcpy(globalName,newFileName);
+                    scanTerminalFlag=0;
+                    while(scanTerminalFlag==0);
+                }
+            }
+        }
+        closedir(ptrDir);
+        usleep(500000);
+    }
+}
+
+int sendFile(char *fileName){
+    int idMsg = 0,filesize,n=0;
+    char path[30]="./syncFolder/";
+    strcat(path,fileName);
+
+    FILE *fp;
+    fp = fopen(path,"rb");
+
+    if(fp==NULL){
+        printf("error opening the file");
+        return 0;
+    } 
+
+    fseek(fp, 0L, SEEK_END);
+    filesize = ftell(fp);
+    rewind(fp);
+
+    struct sockaddr_in server;
+    
+    bzero(&server, sizeof(server)); 
+    //Configuracion del servidor
+    server.sin_family = AF_INET; 
+    server.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+    server.sin_port = htons(SERVPORT);
+
+    Package pkg;
+    strcpy(pkg.fileName,fileName);
+    int nread;
+
+    while((nread=fread(pkg.msg,sizeof(char),MAX,fp))>0){
+
+        pkg.id=idMsg++;
+        pkg.msgLen =nread; 
+
+        //Envio de mensaje al servidor
+        int nbytess=sendto(sockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&server,sizeof(server));
+
+        bzero(pkg.msg,MAX); 
+
+        int nrecv=recvfrom(sockfd,(void*)&pkg,sizeof(Package),0,NULL,0);
+
+        if(pkg.id!=idMsg){
+            printf("error sending file\n");
+            return 0;
+        }
+        bzero(pkg.msg,MAX);
+    }
+
+    pkg.id=-1;
+    int nbytess=sendto(sockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&server,sizeof(server));
+
+    fclose(fp);
+   
+    return 1;
+}
+
+int main(int argv,char *args[]){
+
+    pthread_t scanDirTh;
+    pthread_create(&scanDirTh,NULL,(void*)scanDir,NULL);
+
+    int connfd,flag=1; 
+    struct sockaddr_in client; 
+  
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
+    if (sockfd == -1) { 
+        printf("socket creation failed...\n"); 
+        exit(0); 
+    }else{
+        printf("Socket successfully created..\n");    
+    } 
+    
+    if(setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&flag,sizeof(flag))==-1){
+        printf("setsockopt failed...\n"); 
+        return 0; 
+    }
+
+    //Configuracion del cliente
+    bzero(&client, sizeof(client)); 
+    client.sin_family = AF_INET;
+    client.sin_addr.s_addr = htonl(INADDR_ANY); 
+    client.sin_port = htons(0); 
+
+    if ((bind(sockfd, (struct sockaddr*)&client, sizeof(client))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    }
+
+    char *finalName;
+    finalName = (char*)malloc(sizeof(char)*40);
+
+    while(TRUE){
+        
+        while(scanTerminalFlag);
+        strcpy(finalName,globalName);
+
+        //Envio de archivo
+        if(sendFile(finalName)){
+            printf("%s send\n",finalName);
+        }else{
+            printf("error sending file\n");
+        } 
+        scanTerminalFlag=1;
+    }
+
+    return 0;
+} 

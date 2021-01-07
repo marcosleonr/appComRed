@@ -73,47 +73,11 @@ void * server(void * args){
     clilen = sizeof(client);
 
     while(TRUE){
-        char path[30]="./syncFolder/";
-        FILE *fp;
-        Package pkg;
 
-        while(TRUE){
-            
-            bzero(pkg.msg, MAX); 
-            int nrecv = recvfrom(serverSockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&client,&clilen);
-
-            if(pkg.id==0){
-                strcat(path,pkg.fileName);
-
-                char *str;
-                str = (char*)malloc(sizeof(char)*40);
-                strcpy(str,pkg.fileName);
-                recFileName[numberOfRecFiles]=str;
-                numberOfRecFiles++;
-
-
-                fp = fopen(path, "a+");
-                if(fp==NULL){
-                    printf("error opening the file");
-                    exit(0);
-                }
-            }else if(pkg.id==-1){
-                printf("%s received\n",pkg.fileName);
-                fclose(fp);
-                break;
-            }
-
-            fwrite(pkg.msg,sizeof(char),pkg.msgLen,fp);
-
-            bzero(pkg.msg, MAX);
-            pkg.id++;
-
-            int nsend = sendto(serverSockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&client,clilen);
-
-        } 
-    }
-    close(serverSockfd);
        
+ 
+    }
+
 }
 
 int findFile(char *fileName){
@@ -283,6 +247,7 @@ int main(int argc,char *argv[]){
         exit(0);
     }else{
         newServPort=confP.idServerPort;
+        printf("%d\n",newServPort);
     }
 
     char *finalName;

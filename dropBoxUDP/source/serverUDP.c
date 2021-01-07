@@ -39,101 +39,9 @@ typedef struct{
     int clientServPort;
 }ports;
 
-typedef struct{
-    int port;
-    char fileName[40];
-}packageClient;
-
-
 serverData serverList[40];
 int idServerList;
 int idServerPort=7500;
-
-int sendFile(int sockfd, int port, char *fileName){
-
-    int idMsg = 0,filesize,n=0;
-    char path[30]="./syncFolder/";
-    strcat(path,fileName);
-
-    FILE *fp;
-    fp = fopen(path,"rb");
-
-    if(fp==NULL){
-        printf("error opening the file");
-        return 0;
-    } 
-
-    fseek(fp, 0L, SEEK_END);
-    filesize = ftell(fp);
-    rewind(fp);
-
-    struct sockaddr_in server;
-    bzero(&server, sizeof(server)); 
-    server.sin_family = AF_INET; 
-    server.sin_addr.s_addr = inet_addr("127.0.0.1"); 
-    server.sin_port = htons(port);
-
-    Package pkg;
-    strcpy(pkg.fileName,fileName);
-
-    int nread;
-    while((nread=fread(pkg.msg,sizeof(char),MAX,fp))>0){
-
-        pkg.id=idMsg++;
-        pkg.msgLen =nread; 
-
-        int nbytess=sendto(sockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&server,sizeof(struct sockaddr_in));
-
-        int nrecv=recvfrom(sockfd,(void*)&pkg,sizeof(Package),0,NULL,0);
-
-        if(pkg.id!=idMsg){
-            printf("error sending file\n");
-            return 0;
-        }
-    }
-    fclose(fp);
-
-    pkg.id=-1;
-    int nbytess=sendto(sockfd,(void*)&pkg,sizeof(Package),0,(struct sockaddr*)&server,sizeof(struct sockaddr_in));
-   
-    return 1;
-}
-
-void * cliente(void * args){
-    packageClient pC = *((packageClient*)args);
-    
-    int sockfd, connfd,flag=1; 
-    struct sockaddr_in client,server; 
-  
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
-    if (sockfd == -1) { 
-        printf("socket creation failed...\n"); 
-        exit(0); 
-    }
-    
-    if(setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&flag,sizeof(flag))==-1){
-        printf("setsockopt failed...\n"); 
-        return 0; 
-    }
-
-    bzero(&client, sizeof(client)); 
-    client.sin_family = AF_INET;
-    client.sin_addr.s_addr = htonl(INADDR_ANY); 
-    client.sin_port = htons(0); 
-
-    if ((bind(sockfd, (struct sockaddr*)&client, sizeof(client))) != 0) { 
-        printf("socket bind failed...\n"); 
-        exit(0); 
-    }
-    
-    if(sendFile(sockfd,pC.port,pC.fileName)){
-        printf("%s send\n",pC.fileName);
-    }else{
-        printf("Error sending file\n");
-    } 
-    
-    close(sockfd);
-}
 
 void * auxServer(void * args){
 
@@ -141,6 +49,8 @@ void * auxServer(void * args){
     memcpy((void*)&ps,args,sizeof(ports));
 
     int port = ps.serverPort;
+
+    printf("puerto %d\n",port);
 
     int localSockfd,clilen,flag=1; 
     struct sockaddr_in server,client; 
@@ -195,14 +105,7 @@ void * auxServer(void * args){
                 int nServers = idServerList; 
                 for(int i=0;i<(nServers);i++){
                     if(ps.clientServPort!=serverList[i].serverPort){
-                        packageClient *pC;
-                        pC = (packageClient*)malloc(sizeof(packageClient));
-                        pC->port=serverList[i].serverPort;
-                        strncpy(pC->fileName,pkg.fileName,40);
-                        pthread_t *clientTh = (pthread_t*)malloc(sizeof(pthread_t));
-                        pthread_create(clientTh, NULL,(void*)cliente,(void*)pC);
-                        free(clientTh);         
-                                          
+                        printf("%d\n",serverList[i].serverPort);
                     }
                         
                 }  

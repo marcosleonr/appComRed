@@ -47,6 +47,38 @@ typedef struct{
     char ip[IPLEN];
 }serverData;
 
+void pop(char *str){
+	int puntero = 0;
+    for(int i=0;i < numberOfFiles;i++){
+        if(strcmp(arrFileName[i],str)==0){
+            for (int a = 0; a < numberOfFiles -1; ++a){
+            	if (a == i || puntero == 1){
+            		puntero = a + 1;
+            		arrFileName[a] = arrFileName[puntero];
+            		puntero = 1;
+            	}
+            	printf(" ***  %s\n",arrFileName[a] );
+            }
+            numberOfFiles--;
+        }
+
+    }
+
+
+    for(int i=0;i < numberOfRecFiles;i++){
+        if(strcmp(recFileName[i],str)==0){
+            for (int a = 0; a < numberOfRecFiles -1; ++a){
+            	if (a == i || puntero == 1){
+            		puntero = a + 1;
+            		recFileName[a] = recFileName[puntero];
+            		puntero = 1;
+            	}
+            	printf(" ***  %s\n",recFileName[a] );
+            }
+            numberOfRecFiles--;
+        }
+    }
+}
 
 void * server(void *args){
 
@@ -105,11 +137,24 @@ void * server(void *args){
 
             int nbytesr=recvfrom(idChannel,&pkg,sizeof(Package),0,NULL,NULL);
 
+            if(pkg.id == -4){
+            printf("se va a borrar\n");
+            	char path[30]="./syncFolder/";
+            	strcat(path,pkg.fileName);
+
+                remove(path);
+                printf(" DIRECCION  %s\n", path);
+                printf(" NOMBRE  %s\n", pkg.fileName);
+               
+                pop(pkg.fileName);
+                break;
+            }
+
             if(pkg.id==-1){
                 printf("%s received\n",pkg.fileName);
                 break;
             }
-
+            
             if(banFile){
                 strcat(path,pkg.fileName);
 
@@ -121,7 +166,7 @@ void * server(void *args){
 
                 fp = fopen(path, "a+");
                 if(fp==NULL){
-                    printf("error opening the file");
+                    printf("error opening the file\n");
                     exit(0);
                 }
                 banFile=0; 
@@ -134,8 +179,12 @@ void * server(void *args){
 
             int nbytess=sendto(idChannel,&pkg,sizeof(Package),0,NULL,0);
         }
-        fclose(fp);
-        close(idChannel);
+        if(pkg.id != -4){
+            fclose(fp);
+            close(idChannel);
+            }
+        
+        
     }
 
     close(sockfd);
@@ -149,12 +198,13 @@ int findFile(char *fileName){
 
     for(int i=0;i<numberOfFiles;i++){
         if(strcmp(arrFileName[i],fileName)==0){
+            //printf("%s\n", arrFileName[i]);
             return 1;
         }
     }
-
     for(int i=0;i<numberOfRecFiles;i++){
         if(strcmp(recFileName[i],fileName)==0){
+            //printf("%s\n", recFileName[i]);
             return 1;
         }
     }
@@ -186,7 +236,8 @@ void * scanDir(void *args){
             }
         }
         closedir(ptrDir);
-        usleep(500000);
+        
+        usleep(50000);
     }
 }
 
@@ -201,7 +252,7 @@ int sendFile(char *fileName){
     fp = fopen(path,"rb");
 
     if(fp==NULL){
-        printf("error opening the file");
+        printf("error opening the file\n");
         return 0;
     } 
 
@@ -242,9 +293,12 @@ int sendFile(char *fileName){
     return 1;
 }
 
+
 void * scanTerminal(void * args){
-    char str[40];
-    //while(TRUE){
+    while(1){
+        char str[40];
+        char path[40]="./syncFolder/";
+    
         bzero(str,40);
         scanf("%s",str);
         if(strncmp(str,"exit",4)==0){
@@ -252,10 +306,23 @@ void * scanTerminal(void * args){
             final.id=-2;
             int nbytess=sendto(sockfd,&final,sizeof(Package),0,NULL,0);
             close(sockfd);
-            printf("closed conection");
+            printf("closed conection\n");
             exit(0);
-        }
+        }else{
 
+            //Para eleminar el archivo local
+            Package delete;
+            strcat(path,str);
+            delete.id = -3;
+            strcpy(delete.fileName, str);
+
+            int nbytess=sendto(sockfd,&delete,sizeof(Package),0,NULL,0);
+            remove(path);
+            printf(" deleted  %s \n", path);
+            pop(str);
+            
+        }
+    }
 }
 
 int main(int argc,char *argv[]){
@@ -313,7 +380,7 @@ int main(int argc,char *argv[]){
     int nbytesr=recvfrom(sockfd,&sD,sizeof(serverData),0,NULL,NULL);
     
     if(sD.serverPort!=-1){
-        printf("error localserver info");
+        printf("error localserver info\n");
         exit(0);
     }else{
         //printf("localserver info\n");

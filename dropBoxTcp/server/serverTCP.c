@@ -40,6 +40,8 @@ typedef struct{
 
 serverData serverList[40];
 int idServerList;
+char strDelete[40];
+int banDelete;
 
 sem_t *sem1;
 sem_t *sem2;
@@ -126,11 +128,24 @@ void * client(void *args){
         printf("connected to the server 127.0.0.1:%d \n",pC.port); 
     }
 
-    if(sendFile(sockfd,pC.fileName)){
-        printf("%s send\n",pC.fileName);
+    if(banDelete==1){
+        
+        Package delete;
+
+        delete.id = -4;
+        strcpy(delete.filename, strDelete);
+
+        int nbytess=sendto(sockfd,&delete,sizeof(Package),0,NULL,0);
+        printf("Send element to delete:  %s \n", delete.filename);       
+        banDelete = 0;
+        
     }else{
-        printf("error sending file\n");
-    } 
+        if(sendFile(sockfd,pC.fileName)){
+            printf("%s send\n",pC.fileName);
+        }else{  
+            printf("error sending file\n");
+        } 
+    }
 
     close(sockfd);
 }
@@ -203,6 +218,33 @@ void *handler(void *args){
                 banFinal=0;
                 break;
             }
+            else if(pkg.id == -3){
+                bzero(strDelete,40);
+                strcat(path,pkg.filename);
+                strcpy(strDelete, pkg.filename);
+                remove(path);
+                printf("%s deleted \n", path);
+                
+
+                int nServers = idServerList; 
+                for(int i=0;i<(nServers);i++){
+
+                    if(serverPC!=serverList[i].serverPort){
+                        //Creacion de clientes que enviaran el archivo recibido
+                        packageClient *pC;
+                        pC = (packageClient*)malloc(sizeof(packageClient));
+                        pC->port=serverList[i].serverPort;
+                        strncpy(pC->fileName,pkg.filename,40);
+                        while(banDelete == 1);
+                        banDelete = 1;
+                        pthread_t *clientTh = (pthread_t*)malloc(sizeof(pthread_t));
+                        pthread_create(clientTh, NULL,(void*)client,(void*)pC);
+                        free(clientTh);   
+                    }                   
+                
+                } break;
+
+            }
 
 
             if(banFile){
@@ -224,7 +266,10 @@ void *handler(void *args){
 
         }     
         if(banFinal==0)break; 
-        fclose(fp);
+        if(pkg.id != -3){
+            fclose(fp);
+        }
+        
     }
     
     
@@ -245,10 +290,6 @@ void * scanTerminal(void * args){
 int main(int argv,char *args[]){
 
     pthread_t scanTerminalTh;
-
-    sem1 = sem_open(SEM1_NAME, O_CREAT, S_IRUSR | S_IWUSR,1);
-    sem2 = sem_open(SEM2_NAME, O_CREAT, S_IRUSR | S_IWUSR,0);
-
     int sockfd,connfd,len,flag=1; 
     struct sockaddr_in server,client; 
     

@@ -48,6 +48,8 @@ typedef struct{
 serverData serverList[40];
 int idServerList;
 int idServerPort=7500;
+char strDelete[40];
+int banDelete;
 
 int sendFile(int sockfd, int port, char *fileName){
 
@@ -125,13 +127,28 @@ void * cliente(void * args){
         printf("socket bind failed...\n"); 
         exit(0); 
     }
+
+    bzero(&server, sizeof(server)); 
+    server.sin_family = AF_INET; 
+    server.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+    server.sin_port = htons(pC.port);
     
-    if(sendFile(sockfd,pC.port,pC.fileName)){
-        printf("%s send\n",pC.fileName);
+    if(banDelete==1){
+        
+        Package delete;
+        delete.id = -4;
+        strcpy(delete.fileName, strDelete);
+
+        int nbytess=sendto(sockfd,(void*)&delete,sizeof(Package),0,(struct sockaddr*)&server,sizeof(struct sockaddr_in));
+        printf("Send element to delete:  %s \n", delete.fileName);       
+        banDelete = 0;
     }else{
-        printf("Error sending file\n");
-    } 
-    
+        if(sendFile(sockfd,pC.port,pC.fileName)){
+            printf("%s send\n",pC.fileName);
+        }else{
+            printf("Error sending file\n");
+        } 
+    }   
     close(sockfd);
 }
 
@@ -212,6 +229,31 @@ void * auxServer(void * args){
                 close(localSockfd);
                 printf("closed conection");
                 banFinal=0;
+                break;
+            }else if(pkg.id==-3){
+                bzero(strDelete,40);
+                strcat(path,pkg.fileName);
+                strcpy(strDelete, pkg.fileName);
+                remove(path);
+                printf("%s deleted \n", path);
+                
+                int nServers = idServerList; 
+                for(int i=0;i<(nServers);i++){
+
+                    if(ps.clientServPort!=serverList[i].serverPort){
+                        //Creacion de clientes que enviaran el archivo recibido
+                        packageClient *pC;
+                        pC = (packageClient*)malloc(sizeof(packageClient));
+                        pC->port=serverList[i].serverPort;
+                        strncpy(pC->fileName,pkg.fileName,40);
+                        while(banDelete == 1);
+                        banDelete = 1;
+                        pthread_t *clientTh = (pthread_t*)malloc(sizeof(pthread_t));
+                        pthread_create(clientTh, NULL,(void*)cliente,(void*)pC);
+                        free(clientTh);   
+                    }                   
+                
+                } 
                 break;
             }
 
